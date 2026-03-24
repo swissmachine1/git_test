@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>HTML Analyzer</title>
+<title>HTML Analyzer + TAM Scanner</title>
 <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 <style>
   :root {
@@ -214,6 +214,74 @@
   }
   @keyframes spin { to { transform: rotate(360deg); } }
 
+  /* ── TAM section ── */
+  .divider {
+    display: flex; align-items: center; gap: 12px;
+    color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .08em;
+    margin: 8px 0 4px;
+  }
+  .divider::before, .divider::after {
+    content: ''; flex: 1; border-top: 1px solid var(--border);
+  }
+
+  .progress-bar-wrap {
+    background: var(--bg); border: 1px solid var(--border); border-radius: 4px;
+    height: 8px; overflow: hidden; margin-top: 8px;
+  }
+  .progress-bar-fill {
+    height: 100%; background: var(--accent); transition: width .3s;
+    border-radius: 4px;
+  }
+
+  .tech-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 8px; margin-top: 12px;
+  }
+  .tech-card {
+    background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 10px 12px;
+  }
+  .tech-card-header { display: flex; align-items: center; justify-content: space-between; }
+  .tech-name { font-size: 13px; font-weight: 600; }
+  .tech-cat { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+  .tech-bar-wrap { margin-top: 6px; background: #1e2430; border-radius: 3px; height: 5px; }
+  .tech-bar-fill { height: 100%; border-radius: 3px; background: var(--accent); }
+  .tech-pct { font-size: 13px; font-weight: 700; color: var(--accent); }
+  .tech-count { font-size: 11px; color: var(--muted); }
+
+  .cat-filter { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+  .cat-btn {
+    font-size: 11px; padding: 3px 10px; border-radius: 12px;
+    border: 1px solid var(--border); background: transparent; color: var(--muted);
+    cursor: pointer; transition: all .15s;
+  }
+  .cat-btn:hover, .cat-btn.active { border-color: var(--accent); color: var(--accent); background: rgba(88,166,255,.08); }
+
+  .company-table { width: 100%; border-collapse: collapse; font-size: 12px; margin-top: 10px; }
+  .company-table th {
+    text-align: left; font-size: 10px; text-transform: uppercase; letter-spacing: .05em;
+    color: var(--muted); padding: 5px 8px; border-bottom: 1px solid var(--border); white-space: nowrap;
+  }
+  .company-table td { padding: 6px 8px; border-bottom: 1px solid #1a1f2a; vertical-align: top; max-width: 200px; }
+  .company-table tr:last-child td { border-bottom: none; }
+  .company-url { color: var(--accent); font-family: monospace; font-size: 11px; word-break: break-all; }
+  .tech-pill {
+    display: inline-block; font-size: 10px; padding: 2px 6px; border-radius: 10px;
+    background: rgba(88,166,255,.1); border: 1px solid rgba(88,166,255,.25);
+    color: var(--accent); margin: 1px 2px 1px 0;
+  }
+  .tech-pill.custom { background: rgba(188,140,255,.1); border-color: rgba(188,140,255,.3); color: var(--purple); }
+
+  .tab-bar { display: flex; gap: 2px; border-bottom: 1px solid var(--border); margin-bottom: 14px; }
+  .tab-btn {
+    font-size: 13px; padding: 8px 14px; border: none; background: none;
+    color: var(--muted); cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px;
+  }
+  .tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; }
+
   /* ── Utility ── */
   .hidden { display: none !important; }
   .mt8 { margin-top: 8px; }
@@ -272,6 +340,105 @@
       <div id="analysisOutput" class="analysis-panel mt8"></div>
 
       <div id="profileCard" class="profile-card hidden"></div>
+    </div>
+  </div>
+
+  <!-- ── DIVIDER ──────────────────────────────────────────────── -->
+  <div class="divider">TAM Technology Scanner (BuiltWith replacement)</div>
+
+  <!-- ── TAM STEP A: BULK SCRAPE ─────────────────────────────── -->
+  <div class="card">
+    <div class="card-header">
+      <div class="step-badge" style="background:var(--purple)">A</div>
+      <h2>Bulk Scrape TAM</h2>
+      <span style="margin-left:auto;font-size:11px;color:var(--muted)" id="rawFileCount"></span>
+    </div>
+    <div class="card-body">
+      <textarea id="tamUrls" placeholder="https://company1.com&#10;https://company2.com&#10;https://company3.com&#10;… paste your entire TAM list (one URL per line)"></textarea>
+      <div class="row">
+        <button id="btnTamScrape">Scrape TAM</button>
+        <label style="font-size:12px;color:var(--muted);display:flex;align-items:center;gap:6px">
+          Concurrency
+          <input id="tamConcurrency" type="number" value="8" min="1" max="20"
+            style="width:50px;background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:4px;padding:3px 6px;font-size:12px">
+          parallel
+        </label>
+        <span id="tamScrapeSpinner" class="spinner hidden"></span>
+      </div>
+      <div class="progress-bar-wrap hidden mt8" id="tamScrapeProgressWrap">
+        <div class="progress-bar-fill" id="tamScrapeProgressBar" style="width:0%"></div>
+      </div>
+      <div id="tamScrapeLog" class="log"></div>
+      <div id="rawFileList" class="file-list"></div>
+    </div>
+  </div>
+
+  <!-- ── TAM STEP B: COMPETITOR FINGERPRINTS ─────────────────── -->
+  <div class="card">
+    <div class="card-header">
+      <div class="step-badge" style="background:var(--purple)">B</div>
+      <h2>Competitor Fingerprinting</h2>
+      <span style="margin-left:8px;font-size:12px;color:var(--muted)">Claude extracts custom tech signatures from your competitors</span>
+    </div>
+    <div class="card-body">
+      <p style="font-size:12px;color:var(--muted);margin-bottom:10px">
+        Select competitor files from the scraped list above. Claude will extract proprietary technology fingerprints
+        (beyond the 90 built-in signatures) that can then be detected across your entire TAM.
+      </p>
+      <div id="competitorChips" class="file-list"></div>
+      <div class="row mt8">
+        <button id="btnFingerprint" disabled>Generate Fingerprints</button>
+        <span id="fingerprintSpinner" class="spinner hidden"></span>
+      </div>
+      <div id="fingerprintLog" class="log"></div>
+      <div id="fingerprintResults"></div>
+    </div>
+  </div>
+
+  <!-- ── TAM STEP C: SCAN ─────────────────────────────────────── -->
+  <div class="card">
+    <div class="card-header">
+      <div class="step-badge" style="background:var(--purple)">C</div>
+      <h2>Scan TAM for Technologies</h2>
+    </div>
+    <div class="card-body">
+      <p style="font-size:12px;color:var(--muted);margin-bottom:12px">
+        Scans all scraped HTML files in parallel using 90+ built-in signatures + your custom fingerprints.
+        No API calls per file — runs entirely locally in seconds.
+      </p>
+      <div class="row" style="margin-top:0">
+        <button id="btnTamScan">Scan Full TAM</button>
+        <span id="tamScanSpinner" class="spinner hidden"></span>
+      </div>
+      <div class="progress-bar-wrap hidden mt8" id="tamScanProgressWrap">
+        <div class="progress-bar-fill" id="tamScanProgressBar" style="width:0%"></div>
+      </div>
+      <div id="tamScanLog" class="log"></div>
+
+      <!-- Results tabs -->
+      <div id="tamResults" class="hidden mt8">
+        <div class="tab-bar">
+          <button class="tab-btn active" data-tab="overview">Technology Overview</button>
+          <button class="tab-btn" data-tab="companies">Company Matrix</button>
+        </div>
+
+        <div id="tab-overview" class="tab-panel active">
+          <div id="catFilter" class="cat-filter"></div>
+          <div id="techGrid" class="tech-grid"></div>
+        </div>
+
+        <div id="tab-companies" class="tab-panel">
+          <input id="companySearch" type="text" placeholder="Filter by URL or technology…"
+            style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);
+                   border-radius:var(--radius);padding:7px 10px;font-size:13px;margin-bottom:10px">
+          <div style="overflow-x:auto">
+            <table id="companyTable" class="company-table">
+              <thead><tr id="companyTableHead"></tr></thead>
+              <tbody id="companyTableBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -643,6 +810,327 @@ function renderScores(scores) {
 
 // ── Init ─────────────────────────────────────────────────────────────────
 refreshFiles();
+refreshRawFiles();
+
+// ── TAM: raw file management ─────────────────────────────────────────────
+
+let selectedCompetitors = new Set();
+let lastScanData = null;
+
+async function refreshRawFiles() {
+  const res = await fetch('/api/tam/raw-files');
+  const files = await res.json();
+  renderRawChips(files);
+  $('rawFileCount').textContent = files.length ? `${files.length} scraped` : '';
+}
+
+function renderRawChips(files) {
+  const list = $('rawFileList');
+  const compList = $('competitorChips');
+  list.innerHTML = '';
+  compList.innerHTML = '';
+
+  if (!files.length) return;
+
+  files.forEach(f => {
+    // Main list chip
+    const chip = document.createElement('label');
+    chip.className = 'file-chip';
+    chip.innerHTML = `
+      <input type="checkbox">
+      <span title="${escHtml(f.url)}">${f.url.replace(/^https?:\/\//, '').replace(/\/$/, '').slice(0, 30)}</span>
+      <span style="color:var(--muted);font-size:11px">${(f.size/1024).toFixed(0)}KB</span>
+      <button class="chip-delete" data-name="${f.name}">×</button>
+    `;
+    chip.querySelector('.chip-delete').addEventListener('click', async ev => {
+      ev.preventDefault();
+      await fetch(`/api/tam/raw-files/${f.name}`, { method: 'DELETE' });
+      selectedCompetitors.delete(f.name);
+      refreshRawFiles();
+      updateFingerprintBtn();
+    });
+    list.appendChild(chip);
+
+    // Competitor selector chip
+    const cc = document.createElement('label');
+    cc.className = 'file-chip' + (selectedCompetitors.has(f.name) ? ' selected' : '');
+    cc.innerHTML = `
+      <input type="checkbox" ${selectedCompetitors.has(f.name) ? 'checked' : ''}>
+      <span title="${escHtml(f.url)}">${f.url.replace(/^https?:\/\//, '').replace(/\/$/, '').slice(0, 28)}</span>
+    `;
+    cc.addEventListener('change', () => {
+      if (cc.querySelector('input').checked) {
+        selectedCompetitors.add(f.name);
+        cc.classList.add('selected');
+      } else {
+        selectedCompetitors.delete(f.name);
+        cc.classList.remove('selected');
+      }
+      updateFingerprintBtn();
+    });
+    compList.appendChild(cc);
+  });
+
+  updateFingerprintBtn();
+}
+
+function updateFingerprintBtn() {
+  $('btnFingerprint').disabled = selectedCompetitors.size === 0;
+  $('btnFingerprint').textContent = selectedCompetitors.size
+    ? `Generate Fingerprints from ${selectedCompetitors.size} Competitor${selectedCompetitors.size > 1 ? 's' : ''}`
+    : 'Generate Fingerprints';
+}
+
+// ── TAM: bulk scrape ─────────────────────────────────────────────────────
+
+$('btnTamScrape').addEventListener('click', () => {
+  const raw = $('tamUrls').value.trim();
+  if (!raw) return;
+  const urls = raw.split('\n').map(u => u.trim()).filter(u => u && !u.startsWith('#'));
+  if (!urls.length) return;
+
+  const concurrency = parseInt($('tamConcurrency').value) || 8;
+  const log = $('tamScrapeLog');
+  log.innerHTML = '';
+  $('btnTamScrape').disabled = true;
+  $('tamScrapeSpinner').classList.remove('hidden');
+  $('tamScrapeProgressWrap').classList.remove('hidden');
+
+  let done = 0;
+  const total = urls.length;
+
+  const query = urls.map(encodeURIComponent).join(',');
+  sseStream(`/api/tam/scrape?urls=${query}&concurrency=${concurrency}`, {
+    log:     m => logLine(log, m.text, 'info'),
+    scraped: m => {
+      done++;
+      const pct = Math.round(done / total * 100);
+      $('tamScrapeProgressBar').style.width = pct + '%';
+      const kb = (m.html_size || 0) / 1024;
+      const skip = m.skipped ? ' (already scraped)' : '';
+      logLine(log, `✓ ${m.url} — ${kb.toFixed(0)}KB${skip}`, 'ok');
+      if (done % 5 === 0 || done === total) refreshRawFiles();
+    },
+    error: m => { done++; logLine(log, `✗ ${m.text}`, 'err'); },
+    done: m => {
+      logLine(log, `✓ Done — ${m.ok}/${m.total} scraped, ${m.err} failed.`, 'ok');
+      $('btnTamScrape').disabled = false;
+      $('tamScrapeSpinner').classList.add('hidden');
+      refreshRawFiles();
+    },
+    close: () => {
+      $('btnTamScrape').disabled = false;
+      $('tamScrapeSpinner').classList.add('hidden');
+    },
+  });
+});
+
+// ── TAM: competitor fingerprinting ───────────────────────────────────────
+
+$('btnFingerprint').addEventListener('click', () => {
+  if (!selectedCompetitors.size) return;
+  const key = apiKey();
+  const log = $('fingerprintLog');
+  log.innerHTML = '';
+  $('fingerprintResults').innerHTML = '';
+  $('btnFingerprint').disabled = true;
+  $('fingerprintSpinner').classList.remove('hidden');
+
+  const filesParam = [...selectedCompetitors].map(encodeURIComponent).join(',');
+  const keyParam = key ? `&api_key=${encodeURIComponent(key)}` : '';
+  let allFps = [];
+
+  sseStream(`/api/tam/fingerprint?files=${filesParam}${keyParam}`, {
+    log: m => logLine(log, m.text, 'info'),
+    fingerprints: m => {
+      allFps = allFps.concat(m.data || []);
+      logLine(log, `✓ ${m.file}: ${m.count} custom fingerprints extracted`, 'ok');
+    },
+    error: m => logLine(log, `✗ ${m.text}`, 'err'),
+    done: m => {
+      logLine(log, `✓ Total: ${m.total} custom fingerprints saved.`, 'ok');
+      $('btnFingerprint').disabled = false;
+      $('fingerprintSpinner').classList.add('hidden');
+      renderFingerprintResults(allFps);
+    },
+    close: () => {
+      $('btnFingerprint').disabled = false;
+      $('fingerprintSpinner').classList.add('hidden');
+    },
+  });
+});
+
+function renderFingerprintResults(fps) {
+  if (!fps.length) return;
+  const el = $('fingerprintResults');
+  el.innerHTML = `
+    <div style="margin-top:12px;font-size:12px;color:var(--muted);margin-bottom:8px">
+      ${fps.length} custom fingerprints ready — these will be used in the TAM scan below.
+    </div>
+    <div class="signal-tags">
+      ${fps.slice(0,20).map(fp => `
+        <span class="signal-tag strong" title="${escHtml(fp.evidence || '')}">
+          ${escHtml(fp.name)} <span style="opacity:.6">${escHtml(fp.category || '')}</span>
+        </span>
+      `).join('')}
+      ${fps.length > 20 ? `<span class="signal-tag strong">+${fps.length-20} more</span>` : ''}
+    </div>
+  `;
+}
+
+// ── TAM: scan ────────────────────────────────────────────────────────────
+
+$('btnTamScan').addEventListener('click', () => {
+  const log = $('tamScanLog');
+  log.innerHTML = '';
+  $('tamResults').classList.add('hidden');
+  $('btnTamScan').disabled = true;
+  $('tamScanSpinner').classList.remove('hidden');
+  $('tamScanProgressWrap').classList.remove('hidden');
+  $('tamScanProgressBar').style.width = '0%';
+
+  const key = apiKey();
+  const keyParam = key ? `&api_key=${encodeURIComponent(key)}` : '';
+
+  sseStream(`/api/tam/scan${keyParam ? '?' + keyParam.slice(1) : ''}`, {
+    log:      m => logLine(log, m.text, 'info'),
+    progress: m => {
+      const pct = Math.round(m.done / m.total * 100);
+      $('tamScanProgressBar').style.width = pct + '%';
+      logLine(log, `Scanning… ${m.done}/${m.total}`, 'info');
+      // Only keep last 3 log lines to avoid overflow
+      while (log.children.length > 3) log.removeChild(log.firstChild);
+    },
+    error: m => logLine(log, `✗ ${m.text}`, 'err'),
+    scan_done: m => {
+      logLine(log, `✓ Scanned ${m.total} companies — ${m.signatures} signatures checked.`, 'ok');
+      $('btnTamScan').disabled = false;
+      $('tamScanSpinner').classList.add('hidden');
+      lastScanData = m;
+      renderTamResults(m);
+    },
+    close: () => {
+      $('btnTamScan').disabled = false;
+      $('tamScanSpinner').classList.add('hidden');
+    },
+  });
+});
+
+// ── TAM: render results ──────────────────────────────────────────────────
+
+let activeCategory = 'all';
+
+function renderTamResults(data) {
+  $('tamResults').classList.remove('hidden');
+  renderTechGrid(data.top_techs || [], data.total);
+  renderCompanyTable(data.full_results || {});
+}
+
+function renderTechGrid(techs, total) {
+  const detected = techs.filter(t => t.count > 0);
+
+  // Category filter
+  const cats = ['all', ...new Set(detected.map(t => t.category))].sort();
+  const cf = $('catFilter');
+  cf.innerHTML = cats.map(c => `
+    <button class="cat-btn${c === activeCategory ? ' active' : ''}" data-cat="${escHtml(c)}">
+      ${c === 'all' ? 'All' : escHtml(c)}
+    </button>
+  `).join('');
+  cf.querySelectorAll('.cat-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      activeCategory = btn.dataset.cat;
+      renderTechGrid(techs, total);
+    });
+  });
+
+  const filtered = activeCategory === 'all'
+    ? detected
+    : detected.filter(t => t.category === activeCategory);
+
+  const grid = $('techGrid');
+  if (!filtered.length) {
+    grid.innerHTML = '<p style="color:var(--muted);font-size:13px">No technologies detected in this category.</p>';
+    return;
+  }
+
+  grid.innerHTML = filtered.map(t => {
+    const pct = Math.round(t.count / total * 100);
+    return `
+      <div class="tech-card">
+        <div class="tech-card-header">
+          <div>
+            <div class="tech-name">${escHtml(t.name)}</div>
+            <div class="tech-cat">${escHtml(t.category)}</div>
+          </div>
+          <div style="text-align:right">
+            <div class="tech-pct">${pct}%</div>
+            <div class="tech-count">${t.count}/${total}</div>
+          </div>
+        </div>
+        <div class="tech-bar-wrap">
+          <div class="tech-bar-fill" style="width:${pct}%"></div>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+function renderCompanyTable(results) {
+  const companies = Object.values(results);
+  if (!companies.length) return;
+
+  // All tech names across all companies
+  const allTechs = new Set();
+  companies.forEach(c => Object.values(c.technologies || {}).forEach(t => allTechs.add(t.name)));
+  const techList = [...allTechs].sort();
+
+  const head = $('companyTableHead');
+  head.innerHTML = `<th>Company</th><th>Count</th>` +
+    techList.slice(0, 30).map(t => `<th style="white-space:nowrap">${escHtml(t)}</th>`).join('');
+
+  function buildRows(filter) {
+    const filtered = filter
+      ? companies.filter(c => {
+          const url = (c.url || '').toLowerCase();
+          const techs = Object.values(c.technologies || {}).map(t => t.name.toLowerCase()).join(' ');
+          return url.includes(filter) || techs.includes(filter);
+        })
+      : companies;
+
+    const sorted = filtered.sort((a, b) => (b.tech_count || 0) - (a.tech_count || 0));
+
+    return sorted.slice(0, 200).map(c => {
+      const detectedNames = new Set(Object.values(c.technologies || {}).map(t => t.name));
+      return `<tr>
+        <td class="company-url">${escHtml((c.url || '').replace(/^https?:\/\//, '').slice(0, 35))}</td>
+        <td style="color:var(--text);font-weight:600">${c.tech_count || 0}</td>
+        ${techList.slice(0, 30).map(t => `
+          <td style="text-align:center">
+            ${detectedNames.has(t) ? '<span style="color:var(--green)">✓</span>' : ''}
+          </td>
+        `).join('')}
+      </tr>`;
+    }).join('');
+  }
+
+  $('companyTableBody').innerHTML = buildRows('');
+
+  $('companySearch').addEventListener('input', e => {
+    $('companyTableBody').innerHTML = buildRows(e.target.value.toLowerCase().trim());
+  });
+}
+
+// Tab switching
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const tab = btn.dataset.tab;
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('tab-' + tab).classList.add('active');
+  });
+});
 </script>
 </body>
 </html>
